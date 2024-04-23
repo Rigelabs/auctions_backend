@@ -1,21 +1,21 @@
 const express = require('express');
 const helmet = require('helmet');
-const {createServer} = require('http');
+
 const cors = require('cors');
 const env = require('dotenv');
-const https = require("https");
-const fs = require('fs');
 
-const path = require('path');
 const logger = require('./middlewares/logger');
-
-
-
 
 const process = require('process');
 const { default: mongoose } = require('mongoose');
-const send_subsriber_id = require('./middlewares/utility');
+const {send_subsriber_id,watch_auction_start_time, watch_auction_end_time} = require('./middlewares/utility');
 
+const auction_routes = require("./controllers/auctions");
+const bids_routes = require("./controllers/bids");
+const bidder_routes = require("./controllers/bidders");
+const auctioneer_routes = require("./controllers/auctioneers");
+const category_routes = require("./controllers/category");
+const beneficiary_routes = require("./controllers/beneficiary");
 
 const app = express()
 // Cross-origin resource sharing (CORS) is a mechanism that allows 
@@ -68,13 +68,33 @@ mongoose.connect(db, {})
 app.get('/', function (req, res) {
   res.send('Restricted area!')
 
-})
+});
+
+app.use("/auctions",auction_routes);
+app.use("/bids",bids_routes);
+app.use("/bidders",bidder_routes);
+app.use("/auctioneers",auctioneer_routes);
+app.use("/category",category_routes);
+app.use("/beneficiary",beneficiary_routes);
+
 //generate subscriber id
-send_subsriber_id()
+send_subsriber_id();
+
+//cron jobs
+watch_auction_start_time();
+//watch_auction_end_time();
 
 // Capture 500 errors
 app.use((err, req, res, next) => {
-  res.status(500).send('Server Error!');
+  if(err.code==="LIMIT_FILE_SIZE"){
+    res.status(500).json({message:'One of the uploaded files is larger than 20MB'});
+  }else if(err.code==="LIMIT_UNEXPECTED_FILE"){
+    res.status(500).json({message:`You exceeded the allowed number ${err.field} files`});
+  }else{
+    console.log(err)
+    res.status(500).send('Server Error!');
+  }
+  
 
 })
 
